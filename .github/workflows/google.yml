@@ -1,0 +1,39 @@
+name: Deploy to GKE via Docker
+on:
+  push:
+    branches: [main]
+env:
+  DOCKER_IMAGE: beratkurtaran/flask-app  
+  SSH_HOST: 35.232.121.150  
+  SSH_USER: ismailavcitest         
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:latest
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker stop your-app-container || true
+            docker rm your-app-container || true
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
+            docker run -d \
+              --name your-app-container \
+              -p 80:3000 \
+              ${{ env.DOCKER_IMAGE }}:latest
